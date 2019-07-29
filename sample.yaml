@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kcdt-daemonset-demo
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      name: kcdt-demo
+  template:
+    metadata:
+      labels:
+        name: kcdt-demo
+    spec:
+      containers:
+      - name: kcdt-demo-container
+        image: fenggw/kcdt
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /kcdt/host
+          name: host-volume
+          mountPropagation: Bidirectional
+        - mountPath: /kcdt/host/core
+          name: core-files-backend
+        env:
+        - name: HOSTVOL
+          value: "/root"
+        command: ["/kcdt/init.sh"]
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/kcdt/cleanup.sh"]
+      volumes:
+      - name: host-volume
+        hostPath:
+          # The coredump handler program will be installed here,
+          # you can config it as you like, but remember to modify
+          # the args value of HOSTVOL in env above as well.
+          path: /root
+      - name: core-files-backend
+        # The coredump files will be stored here, please config
+        # your own storage backend here with nfs or ceph etc..
+        nfs:
+          server: $YOUR-SERVER-IP
+          path: $YOUR-PATH
