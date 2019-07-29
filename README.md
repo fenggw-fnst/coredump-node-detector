@@ -13,6 +13,7 @@ When a core dump occurred, it will collect the k8s related
 information such as k8s namespace, pod uid and container name
 as a label to store the coredump files. The other part of this
 project provides the authorized user download according it.
+(See github.com/WanLinghao/coredump-detector)
 
 Currently the container runtimes it supports are docker and cri-o.
 
