@@ -20,11 +20,13 @@ Currently the container runtimes it supports are docker and cri-o.
 
 ## Install
 
-1. Make sure the host machine of every k8s node has installed the libcurl package.
+1. Prerequisites:
+  * k8s cluser must be --allow-privileged=true
+  * libcurl
 
-2. Complete the k8s daemonset configuration file refer to sample.yaml.
-
-3. $ kubectl apply -f sample.yaml
+2. Deploy:
+  Complete the k8s daemonset configuration file refer to sample.yaml.
+  $ kubectl apply -f sample.yaml
 
 
 ## Build
