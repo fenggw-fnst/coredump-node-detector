@@ -26,7 +26,7 @@ Currently the container runtimes it supports are docker and cri-o.
 
 2. Deploy:
   Complete the k8s daemonset configuration file refer to sample.yaml.
-  $ kubectl apply -f sample.yaml
+  $ kubectl create -f sample.yaml
 
 
 ## Build
