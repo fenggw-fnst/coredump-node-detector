@@ -40,7 +40,7 @@ Currently the container runtimes it supports are docker and cri-o.
   $ gcc kcdt.c -o build/kcdt -lcurl -l:libcjson.a -l:libprocps.a
 
 3. Build docker image:
-  $ cd buildImage
+  $ cd build
   $ docker build -t name:tag .
 
 
