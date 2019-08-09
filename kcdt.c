@@ -54,6 +54,7 @@
 
 #define REGEX1	"(/docker|/crio){1}-[a-f0-9]{64}.scope$"
 #define REGEX2	"(/docker|/crio){1}/[a-f0-9]{64}$"
+#define REGEX3	"/[a-f0-9]{64}$"
 
 static int fd;
 static int log_fd;
@@ -836,6 +837,7 @@ int main(int argc, char *argv[])
 	char dumpdir[PATH_MAX];
 	char selfpath[PATH_MAX];
 	char buf[page_size];
+	char sbuf[100];
 	char cgroup_contents[page_size];
 	char *saveptr;
 	char contrt[10];
@@ -921,8 +923,17 @@ int main(int argc, char *argv[])
 
 	// Create sub directory according to k8s related information.
 	ret = do_grep(cgroup_contents, REGEX1, buf, sizeof(buf));
+
 	if (ret == 1)
 		ret = do_grep(cgroup_contents, REGEX2, buf, sizeof(buf));
+
+	if (ret == 1) {
+		ret = do_grep(cgroup_contents, REGEX3, sbuf, sizeof(sbuf));
+		if (ret == 0) {
+			strcpy(buf, "docker");
+			strcat(buf, sbuf);
+		}
+	}
 
 	if (ret) {
 		strcat(dumpdir, "/uncategorized");
