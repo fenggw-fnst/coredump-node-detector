@@ -22,7 +22,7 @@ spec:
           name: host-volume
           mountPropagation: Bidirectional
         - mountPath: /kcdt/host/core
-          name: core-files-backend
+          name: coredump-backend
         env:
         - name: HOSTVOL
           value: "/root"
@@ -38,7 +38,7 @@ spec:
           # you can config it as you like, but remember to modify
           # the args value of HOSTVOL in env above as well.
           path: /root
-      - name: core-files-backend
+      - name: coredump-backend
         # The coredump files will be stored here, please config
         # your own storage backend here with nfs or ceph etc..
         nfs:
