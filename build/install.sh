@@ -18,8 +18,6 @@
 
 INSTALL_SRC="/kcdt/kcdt"
 INSTALL_DST="/kcdt/host/kcdt"
-CORE_PATTERN_RST=`sysctl -n kernel.core_pattern`
-CORE_PIPE_LIMIT_RST=`sysctl -n kernel.core_pipe_limit`
 
 if [ -z $HOSTVOL ]; then
 	CORE_PATTERN="|/root/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
@@ -29,18 +27,14 @@ fi
 
 CORE_PIPE_LIMIT="64"
 
-fail()
-{
-	echo $@
-	exit 1
-}
-
 install()
 {
 	if [ ! -x "$INSTALL_DST" ]; then
 		cp $INSTALL_SRC $INSTALL_DST
-		if [ $? -ne 0 ]; then
-			fail "Failed to install kcdt"
+		if [ $? -eq 0 ]; then
+			echo "kcdt was installed successfully"
+		else
+			echo "Failed to install kcdt"
 		fi
 	fi
 }
@@ -52,22 +46,27 @@ core_config()
 
 	if [ "$cur_pattern" != "$CORE_PATTERN" ]; then
 		sysctl -q kernel.core_pattern="$CORE_PATTERN"
-		if [ $? -ne 0 ]; then
-			fail "Failed to set core_pattern"
+		if [ $? -eq 0 ]; then
+			echo "core_pattern was updated successfully"
+		else
+			echo "Failed to update core_pattern"
 		fi
 	fi
 
 	if [ "$cur_pipe_limit" != "$CORE_PIPE_LIMIT" ]; then
 		sysctl -q kernel.core_pipe_limit="$CORE_PIPE_LIMIT"
-		if [ $? -ne 0 ]; then
-			fail "Failed to set core_pipe_limit"
+		if [ $? -eq 0 ]; then
+			echo "core_pipe_limit was updated successfully"
+		else
+			echo "Failed to update core_pipe_limit"
 		fi
 	fi
 }
 
-echo $CORE_PATTERN_RST >/kcdt/core_pattern
-echo $CORE_PIPE_LIMIT_RST >/kcdt/core_pipe_limit
 echo $$ >/kcdt/install.pid
+if [ $? -ne 0 ]; then
+	echo "Failed to create install.pid"
+fi
 
 while true; do
 	install

@@ -16,6 +16,18 @@
 # You should have received a copy of the GNU General Public License
 #
 
+echo `sysctl -n kernel.core_pattern` >/kcdt/core_pattern.rst
+if [ $? -ne 0 ]; then
+	echo "Failed to create core_pattern.rst"
+fi
+
+echo `sysctl -n kernel.core_pipe_limit` >/kcdt/core_pipe_limit.rst
+if [ $? -ne 0 ]; then
+	echo "Failed to create core_pipe_limit.rst"
+fi
+
+sleep 1
+
 /kcdt/install.sh &
 
 while true; do
