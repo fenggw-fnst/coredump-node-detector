@@ -17,38 +17,38 @@
 #
 
 if [ -f "/kcdt/install.pid" ]; then
-	INSTALL_PID=`cat /kcdt/install.pid`
+	install_pid=`cat /kcdt/install.pid`
 else
 	echo "install.pid does not exist"
 fi
 
 if [ -f "/kcdt/core_pattern.rst" ]; then
-	CORE_PATTERN_RST=`cat /kcdt/core_pattern.rst`
+	core_pattern_rst=`cat /kcdt/core_pattern.rst`
 else
 	echo "core_pattern.rst does not exist"
 fi
 
 if [ -f "/kcdt/core_pipe_limit.rst" ]; then
-	CORE_PIPE_LIMIT_RST=`cat /kcdt/core_pipe_limit.rst`
+	core_pipe_limit_rst=`cat /kcdt/core_pipe_limit.rst`
 else
 	echo "core_pipe_limit.rst does not exist"
 fi
 
-INSTALL_DST="/kcdt/host/kcdt"
+install_dst="/kcdt/host/kcdt"
 
-kill -9 $INSTALL_PID >/dev/null
+kill -9 $install_pid >/dev/null
 if [ $? -ne 0 ]; then
 	echo "Failed to kill the installation process"
 fi
 
 sleep 1
 
-sysctl -q kernel.core_pattern="$CORE_PATTERN_RST"
+sysctl -q kernel.core_pattern="$core_pattern_rst"
 if [ $? -ne 0 ]; then
 	echo "Failed to restore core_pattern"
 fi
 
-sysctl -q kernel.core_pipe_limit="$CORE_PIPE_LIMIT_RST"
+sysctl -q kernel.core_pipe_limit="$core_pipe_limit_rst"
 if [ $? -ne 0 ]; then
 	echo "Failed to restore core_pipe_limit"
 fi
@@ -63,6 +63,6 @@ else
 	echo "Failed to umount /kcdt/host/core"
 fi
 
-if [ -x "$INSTALL_DST" ]; then
-	rm -rf $INSTALL_DST
+if [ -x "$install_dst" ]; then
+	rm -rf $install_dst
 fi

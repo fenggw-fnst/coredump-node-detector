@@ -16,21 +16,21 @@
 # You should have received a copy of the GNU General Public License
 #
 
-INSTALL_SRC="/kcdt/kcdt"
-INSTALL_DST="/kcdt/host/kcdt"
+install_src="/kcdt/kcdt"
+install_dst="/kcdt/host/kcdt"
 
 if [ -z $HOSTVOL ]; then
-	CORE_PATTERN="|/root/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
+	core_pattern="|/root/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
 else
-	CORE_PATTERN="|$HOSTVOL/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
+	core_pattern="|$HOSTVOL/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
 fi
 
-CORE_PIPE_LIMIT="64"
+core_pipe_limit="64"
 
 install()
 {
-	if [ ! -x "$INSTALL_DST" ]; then
-		cp $INSTALL_SRC $INSTALL_DST
+	if [ ! -x "$install_dst" ]; then
+		cp $install_src $install_dst
 		if [ $? -eq 0 ]; then
 			echo "kcdt was installed successfully"
 		else
@@ -41,11 +41,11 @@ install()
 
 core_config()
 {
-	local cur_pattern=`sysctl -n kernel.core_pattern`
-	local cur_pipe_limit=`sysctl -n kernel.core_pipe_limit`
+	local core_pattern_cur=`sysctl -n kernel.core_pattern`
+	local core_pipe_limit_cur=`sysctl -n kernel.core_pipe_limit`
 
-	if [ "$cur_pattern" != "$CORE_PATTERN" ]; then
-		sysctl -q kernel.core_pattern="$CORE_PATTERN"
+	if [ "$core_pattern_cur" != "$core_pattern" ]; then
+		sysctl -q kernel.core_pattern="$core_pattern"
 		if [ $? -eq 0 ]; then
 			echo "core_pattern was updated successfully"
 		else
@@ -53,8 +53,8 @@ core_config()
 		fi
 	fi
 
-	if [ "$cur_pipe_limit" != "$CORE_PIPE_LIMIT" ]; then
-		sysctl -q kernel.core_pipe_limit="$CORE_PIPE_LIMIT"
+	if [ "$core_pipe_limit_cur" != "$core_pipe_limit" ]; then
+		sysctl -q kernel.core_pipe_limit="$core_pipe_limit"
 		if [ $? -eq 0 ]; then
 			echo "core_pipe_limit was updated successfully"
 		else
