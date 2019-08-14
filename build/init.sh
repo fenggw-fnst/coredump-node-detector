@@ -26,9 +26,11 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create core_pipe_limit.rst"
 fi
 
-sleep 1
-
 /kcdt/install.sh &
+echo $! >/kcdt/install.pid
+if [ $? -ne 0 ]; then
+	echo "Failed to create install.pid"
+fi
 
 while true; do
 	sleep 30

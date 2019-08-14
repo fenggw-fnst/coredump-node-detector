@@ -16,8 +16,8 @@
 # You should have received a copy of the GNU General Public License
 #
 
-install_src="/kcdt/kcdt"
-install_dst="/kcdt/host/kcdt"
+install_src=/kcdt/kcdt
+install_dst=/kcdt/host/kcdt
 
 if [ -z $HOSTVOL ]; then
 	core_pattern="|/root/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
@@ -25,11 +25,11 @@ else
 	core_pattern="|$HOSTVOL/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
 fi
 
-core_pipe_limit="64"
+core_pipe_limit=64
 
 install()
 {
-	if [ ! -x "$install_dst" ]; then
+	if [ ! -x $install_dst ]; then
 		cp $install_src $install_dst
 		if [ $? -eq 0 ]; then
 			echo "kcdt was installed successfully"
@@ -53,8 +53,8 @@ core_config()
 		fi
 	fi
 
-	if [ "$core_pipe_limit_cur" != "$core_pipe_limit" ]; then
-		sysctl -q kernel.core_pipe_limit="$core_pipe_limit"
+	if [ $core_pipe_limit_cur -ne $core_pipe_limit ]; then
+		sysctl -q kernel.core_pipe_limit=$core_pipe_limit
 		if [ $? -eq 0 ]; then
 			echo "core_pipe_limit was updated successfully"
 		else
@@ -62,11 +62,6 @@ core_config()
 		fi
 	fi
 }
-
-echo $$ >/kcdt/install.pid
-if [ $? -ne 0 ]; then
-	echo "Failed to create install.pid"
-fi
 
 while true; do
 	install
