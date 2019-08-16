@@ -18,6 +18,7 @@
 
 install_src=/kcdt/kcdt
 install_dst=/kcdt/host/kcdt
+kcdt_pipe=/kcdt/host/kcdt.pipe
 
 if [ -z $HOSTVOL ]; then
 	core_pattern="|/root/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
@@ -37,6 +38,15 @@ install()
 			echo "Failed to install kcdt"
 		fi
 	fi
+
+	if [ ! -p $kcdt_pipe ]; then
+		mkfifo $kcdt_pipe
+		if [ $? -eq 0 ]; then
+			echo "pipe was created successfully"
+		else
+			echo "Failed to create pipe"
+		fi
+	fi
 }
 
 core_config()
@@ -45,7 +55,7 @@ core_config()
 	local core_pipe_limit_cur=`sysctl -n kernel.core_pipe_limit`
 
 	if [ "$core_pattern_cur" != "$core_pattern" ]; then
-		sysctl -q kernel.core_pattern="$core_pattern"
+		sysctl kernel.core_pattern="$core_pattern" >/dev/null
 		if [ $? -eq 0 ]; then
 			echo "core_pattern was updated successfully"
 		else
@@ -54,7 +64,7 @@ core_config()
 	fi
 
 	if [ $core_pipe_limit_cur -ne $core_pipe_limit ]; then
-		sysctl -q kernel.core_pipe_limit=$core_pipe_limit
+		sysctl kernel.core_pipe_limit=$core_pipe_limit >/dev/null
 		if [ $? -eq 0 ]; then
 			echo "core_pipe_limit was updated successfully"
 		else

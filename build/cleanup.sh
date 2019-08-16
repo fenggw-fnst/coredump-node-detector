@@ -16,19 +16,25 @@
 # You should have received a copy of the GNU General Public License
 #
 
-install_pid=/kcdt/install.pid
+run_pid=/kcdt/run.pid
+kcdt_pipe=/kcdt/host/kcdt.pipe
 install_dst=/kcdt/host/kcdt
 core_pattern_rst=/kcdt/core_pattern.rst
 core_pipe_limit_rst=/kcdt/core_pipe_limit.rst
 coredump_mp=/kcdt/host/core
 
-if [ -f $install_pid ]; then
-	kill `cat $install_pid`
-	if [ $? -ne 0 ]; then
-		echo "Failed to kill installation process"
-	fi
+if [ -f $run_pid ]; then
+	kill `cat $run_pid`
 else
-	echo "$install_pid does not exist"
+	echo "$run_pid does not exist"
+fi
+
+sleep 1
+
+if [ -p $kcdt_pipe ]; then
+	rm -f $kcdt_pipe
+else
+	echo "$kcdt_pipe does not exist or not a pipe"
 fi
 
 if [ -x $install_dst ]; then
@@ -38,19 +44,29 @@ else
 fi
 
 if [ -f $core_pattern_rst ]; then
-	sysctl -q kernel.core_pattern="`cat $core_pattern_rst`"
-	if [ $? -ne 0 ]; then
-		echo "Failed to restore core_pattern"
-	fi
+	for i in $(seq 1 10); do
+		sysctl kernel.core_pattern="`cat $core_pattern_rst`" >/dev/null
+		if [ $? -eq 0 ]; then
+			echo "core_pattern was restored successfully"
+			break
+		else
+			echo "Failed to restore core_pattern"
+		fi
+	done
 else
 	echo "$core_pattern_rst does not exist"
 fi
 
 if [ -f $core_pipe_limit_rst ]; then
-	sysctl -q kernel.core_pipe_limit=`cat $core_pipe_limit_rst`
-	if [ $? -ne 0 ]; then
-		echo "Failed to restore core_pipe_limit"
-	fi
+	for i in $(seq 1 10); do
+		sysctl kernel.core_pipe_limit=`cat $core_pipe_limit_rst` >/dev/null
+		if [ $? -eq 0 ]; then
+			echo "core_pipe_limit was restored successfully"
+			break
+		else
+			echo "Failed to restore core_pipe_limit"
+		fi
+	done
 else
 	echo "$core_pipe_limit_rst does not exist"
 fi
@@ -58,9 +74,4 @@ fi
 umount $coredump_mp
 if [ $? -eq 0 ]; then
 	rmdir $coredump_mp
-	if [ $? -ne 0 ]; then
-		echo "Failed to remove $coredump_mp"
-	fi
-else
-	echo "Failed to umount $coredump_mp"
 fi

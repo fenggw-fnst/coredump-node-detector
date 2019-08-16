@@ -16,22 +16,24 @@
 # You should have received a copy of the GNU General Public License
 #
 
-echo `sysctl -n kernel.core_pattern` >/kcdt/core_pattern.rst
-if [ $? -ne 0 ]; then
-	echo "Failed to create core_pattern.rst"
-fi
+trap "cleanup; exit" 1 2 3 15
 
-echo `sysctl -n kernel.core_pipe_limit` >/kcdt/core_pipe_limit.rst
-if [ $? -ne 0 ]; then
-	echo "Failed to create core_pipe_limit.rst"
-fi
-
-/kcdt/run.sh &
-echo $! >/kcdt/run.pid
-if [ $? -ne 0 ]; then
-	echo "Failed to create run.pid"
-fi
+cleanup()
+{
+	kill `pgrep -x install.sh`
+	kill `pgrep -x log.sh`
+}
 
 while true; do
-	sleep 30
+	pgrep -x install.sh >/dev/null
+	if [ $? -ne 0 ]; then
+		/kcdt/install.sh &
+	fi
+
+	pgrep -x log.sh >/dev/null
+	if [ $? -ne 0 ]; then
+		/kcdt/log.sh &
+	fi
+
+	sleep 1
 done

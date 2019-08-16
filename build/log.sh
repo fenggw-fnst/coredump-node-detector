@@ -16,22 +16,15 @@
 # You should have received a copy of the GNU General Public License
 #
 
-echo `sysctl -n kernel.core_pattern` >/kcdt/core_pattern.rst
-if [ $? -ne 0 ]; then
-	echo "Failed to create core_pattern.rst"
-fi
-
-echo `sysctl -n kernel.core_pipe_limit` >/kcdt/core_pipe_limit.rst
-if [ $? -ne 0 ]; then
-	echo "Failed to create core_pipe_limit.rst"
-fi
-
-/kcdt/run.sh &
-echo $! >/kcdt/run.pid
-if [ $? -ne 0 ]; then
-	echo "Failed to create run.pid"
-fi
+kcdt_pipe=/kcdt/host/kcdt.pipe
 
 while true; do
-	sleep 30
+	if [ ! -p $kcdt_pipe ]; then
+    		sleep 1
+		continue
+	fi
+
+	if read line <$kcdt_pipe; then
+		echo $line
+	fi
 done

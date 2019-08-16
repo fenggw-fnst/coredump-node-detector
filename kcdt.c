@@ -35,9 +35,6 @@
 #include <curl/curl.h>
 #include <proc/readproc.h>
 
-#define LOG_FILE	"kcdt.log"
-#define DUMP_DIR	"core"
-
 #define INFO	0
 #define WARN	1
 #define ERR 	2
@@ -58,6 +55,7 @@
 
 static int fd;
 static int log_fd;
+static int pipe_fd;
 static long page_size;
 
 struct memstruct {
@@ -135,6 +133,18 @@ static void loggerf(int level, const char *fmt, ...)
 		}
 	} else {
 		fprintf(stderr, "%s\n", msg);
+	}
+
+	if (pipe_fd > 0) {
+		wrote = write(pipe_fd, msg, strlen(msg));
+		if (wrote == -1) {
+			fprintf(stderr, "Failed to write pipe, errno=%d: %s\n",
+				errno, strerror(errno));
+		} else if ((size_t)wrote != strlen(msg)) {
+			fprintf(stderr,
+				"write log size not match: %d, expected: %d\n",
+				wrote, strlen(msg));
+		}
 	}
 
 	if (level == ERR) {
@@ -821,6 +831,11 @@ static void cleanup(void)
 		safe_close(WARN, log_fd);
 		log_fd = 0;
 	}
+
+	if (pipe_fd > 0) {
+		safe_close(WARN, pipe_fd);
+		pipe_fd = 0;
+	}
 }
 
 int main(int argc, char *argv[])
@@ -881,9 +896,15 @@ int main(int argc, char *argv[])
 
 	snprintf(path, sizeof(path), "%s/%s",
 		 (logind == 0)?get_dirname(selfpath, buf):argv[logind],
-		 LOG_FILE);
+		 "kcdt.log");
 
 	init_log(path);
+
+	snprintf(path, sizeof(path), "%s/%s",
+		 (logind == 0)?get_dirname(selfpath, buf):argv[logind],
+		 "kcdt.pipe");
+
+	pipe_fd = safe_open(WARN, path, O_WRONLY);
 
 
 	// Do not dump the coredump handler itself crashes.
@@ -903,7 +924,7 @@ int main(int argc, char *argv[])
 	// Create dump root directory.
 	snprintf(dumpdir, sizeof(dumpdir), "%s/%s",
 		 (dumpind == 0)?get_dirname(selfpath, buf):argv[dumpind],
-		 DUMP_DIR);
+		 "core");
 
 	safe_mkdir_p(dumpdir, 0755);
 
