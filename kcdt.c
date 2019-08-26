@@ -17,12 +17,15 @@
  */
 
 #define _GNU_SOURCE
+#define _XOPEN_SOURCE 500
 
 #include <errno.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <limits.h>
 #include <regex.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +59,8 @@
 static int fd;
 static int log_fd;
 static int pipe_fd;
-static long page_size;
+static int page_size;
+static uint64_t total;
 
 struct memstruct {
 	char *memory;
@@ -127,9 +131,8 @@ static void loggerf(int level, const char *fmt, ...)
 			fprintf(stderr, "Failed to write log, errno=%d: %s\n",
 				errno, strerror(errno));
 		} else if ((size_t)wrote != strlen(msg)) {
-			fprintf(stderr,
-				"write log size not match: %d, expected: %d\n",
-				wrote, strlen(msg));
+			fprintf(stderr, "write log size not match: %li, "
+				"expected: %lu\n", wrote, strlen(msg));
 		}
 	} else {
 		fprintf(stderr, "%s\n", msg);
@@ -141,9 +144,8 @@ static void loggerf(int level, const char *fmt, ...)
 			fprintf(stderr, "Failed to write pipe, errno=%d: %s\n",
 				errno, strerror(errno));
 		} else if ((size_t)wrote != strlen(msg)) {
-			fprintf(stderr,
-				"write log size not match: %d, expected: %d\n",
-				wrote, strlen(msg));
+			fprintf(stderr, "write log size not match: %li, "
+				"expected: %lu\n", wrote, strlen(msg));
 		}
 	}
 
@@ -151,6 +153,19 @@ static void loggerf(int level, const char *fmt, ...)
 		cleanup();
 		exit(EXIT_FAILURE);
 	}
+}
+
+static int safe_stat(int level, const char *pathname, struct stat *buf)
+{
+	int ret;
+
+	ret = stat(pathname, buf);
+	if (ret == -1) {
+		loggerf(level, "stat(%s) failed, errno=%d: %s",
+			pathname, errno, strerror(errno));
+	}
+
+	return ret;
 }
 
 static int safe_open(int level, const char *pathname, int oflags, ...)
@@ -237,16 +252,18 @@ static int safe_mkdir_p(const char *pathname, mode_t mode)
 	int ret;
 	int i;
 	char ppath[PATH_MAX];
+	struct stat sb;
 
 	ret = mkdir(pathname, mode);
 	if (ret == -1 && errno == EEXIST) {
-		struct stat sb;
 		if (stat(pathname, &sb)) {
 			loggerf(ERR, "stat(%s) failed, errno=%d: %s",
 				pathname, errno, strerror(errno));
 		}
 
-		if (!S_ISDIR(sb.st_mode)) {
+		if (S_ISDIR(sb.st_mode)) {
+			return 1;
+		} else {
 			loggerf(ERR, "%s exists but is not directory",
 				pathname);
 		}
@@ -261,7 +278,7 @@ static int safe_mkdir_p(const char *pathname, mode_t mode)
 
 		safe_mkdir_p(ppath, mode);
 
-		safe_mkdir_p(pathname, mode);
+		ret = safe_mkdir_p(pathname, mode);
 	} else if (ret == -1) {
 		loggerf(ERR, "mkdir(%s) failed, errno=%d: %s",
 			pathname, errno, strerror(errno));
@@ -271,7 +288,7 @@ static int safe_mkdir_p(const char *pathname, mode_t mode)
 }
 
 static ssize_t safe_readlink(int level, int strict, const char *path,
-			      char *buf, size_t bufsize)
+			     char *buf, size_t bufsize)
 {
 	ssize_t ret;
 
@@ -292,6 +309,67 @@ static ssize_t safe_readlink(int level, int strict, const char *path,
 		buf[bufsize - 1] = '\0';
 
 	return ret;
+}
+
+static int safe_rmdir(int level, const char *pathname)
+{
+	int ret;
+
+	ret = rmdir(pathname);
+	if (ret == -1) {
+		loggerf(level, "rmdir() failed, errno=%d: %s",
+			errno, strerror(errno));
+	}
+
+	return ret;
+}
+
+static int safe_unlink(int level, const char *pathname)
+{
+	int ret;
+
+	ret = unlink(pathname);
+	if (ret == -1) {
+		loggerf(level, "unlink() failed, errno=%d: %s",
+			errno, strerror(errno));
+	}
+
+	return ret;
+}
+
+static int _du_s(const char *fpath, const struct stat *sb,
+		 int tflag, struct FTW *ftwbuf)
+{
+	total += (uint64_t) (sb->st_blocks * 512);
+
+	return 0;
+}
+
+static int _rm_rf(const char *fpath, const struct stat *sb,
+		  int tflag, struct FTW *ftwbuf)
+{
+	if (tflag == FTW_DP)
+		safe_rmdir(WARN, fpath);
+	else
+		safe_unlink(WARN, fpath);
+
+	return 0;
+}
+
+static void du_s(const char *dirpath)
+{
+	if (nftw(dirpath, _du_s, 100, FTW_PHYS)) {
+		loggerf(ERR, "nftw() failed, errno=%d: %s",
+			errno, strerror(errno));
+	}
+}
+
+static void rm_rf(const char *dirpath)
+{
+	if (nftw(dirpath, _rm_rf, 100, FTW_DEPTH | FTW_PHYS)) {
+		loggerf(ERR, "nftw() failed, errno=%d: %s",
+			errno, strerror(errno));
+	}
 }
 
 static char *get_dirname(char *pathname, char *res)
@@ -818,6 +896,19 @@ static char *get_dumpname(const char *contrt, const char *contid,
 	return buf;
 }
 
+static int check_full(ssize_t wrote, blksize_t blksize, uint64_t quota)
+{
+	if (wrote > 1)
+		total += (uint64_t) (((wrote - 1) / blksize + 1) * blksize);
+	else
+		total += (uint64_t) (wrote * blksize);
+
+	if (total > quota)
+		return -1;
+
+	return 0;
+}
+
 static void cleanup(void)
 {
 	if (fd > 0) {
@@ -842,14 +933,12 @@ int main(int argc, char *argv[])
 {
 	page_size = getpagesize();
 
-	int opt;
-	int coreind;
-	int dumpind = 0;
-	int logind = 0;
 	int i;
 	ssize_t ret;
+	uint64_t ns_disk_quota;
 	char path[PATH_MAX];
 	char dumpdir[PATH_MAX];
+	char nsdir[PATH_MAX];
 	char selfpath[PATH_MAX];
 	char buf[page_size];
 	char sbuf[100];
@@ -857,80 +946,72 @@ int main(int argc, char *argv[])
 	char *saveptr;
 	char contrt[10];
 	char contid[70];
+	struct stat sb;
 
 
 	// Check the number of arguments.
-	if (argc != 15 && argc != 17 && argc != 19) {
-		fprintf(stderr, "Usage: %s [-l LOGFILE] [-d DUMP_DIRECTORY] "
-			"-c %%c %%d %%e %%E %%g %%h %%i %%I "
-			"%%p %%P %%s %%t %%u\n", argv[0]);
+	if (argc != 15) {
+		fprintf(stderr, "Usage: %s <namespace disk quota> %%c %%d %%e "
+			"%%E %%g %%h %%i %%I %%p %%P %%s %%t %%u\n", argv[0]);
 
 		exit(EXIT_FAILURE);
 	}
 
 
-	// Parse the command-line arguments.
-	while ((opt = getopt(argc, argv, "c:d:l:")) != -1) {
-		switch (opt) {
-		case 'c':
-			coreind = optind - 1;
-			break;
-		case 'd':
-			dumpind = optind - 1;
-			break;
-		case 'l':
-			logind = optind - 1;
-			break;
-		default:
-			fprintf(stderr, "Usage: %s [-l LOGFILE] "
-				"[-d DUMP_DIRECTORY] -c %%c %%d %%e %%E %%g "
-				"%%h %%i %%I %%p %%P %%s %%t %%u\n", argv[0]);
+	// Check coredump size availability.
+	ns_disk_quota = strtoull(argv[1], &saveptr, 10);
 
-			exit(EXIT_FAILURE);
-		}
+	if (*saveptr == 'T' || *saveptr == 't')
+		ns_disk_quota = ns_disk_quota * 1024 * 1024 * 1024 * 1024;
+	else if (*saveptr == 'G' || *saveptr == 'g')
+		ns_disk_quota = ns_disk_quota * 1024 * 1024 * 1024;
+	else if (*saveptr == 'M' || *saveptr == 'm')
+		ns_disk_quota = ns_disk_quota * 1024 * 1024;
+	else if (*saveptr == 'K' || *saveptr == 'k')
+		ns_disk_quota = ns_disk_quota * 1024;
+
+	if (ns_disk_quota == 0) {
+		fprintf(stderr, "coredump is not allowed\n");
+
+		exit(EXIT_SUCCESS);
 	}
 
 
-	// Initialize logfile.
+	// Initialize log files.
 	safe_readlink(ERR, 1, "/proc/self/exe", selfpath, sizeof(selfpath));
 
 	snprintf(path, sizeof(path), "%s/%s",
-		 (logind == 0)?get_dirname(selfpath, buf):argv[logind],
-		 "kcdt.log");
+		 get_dirname(selfpath, buf), "kcdt.log");
 
 	init_log(path);
 
 	snprintf(path, sizeof(path), "%s/%s",
-		 (logind == 0)?get_dirname(selfpath, buf):argv[logind],
-		 "kcdt.pipe");
+		 get_dirname(selfpath, buf), "kcdt.pipe");
 
 	pipe_fd = safe_open(WARN, path, O_WRONLY);
 
 
 	// Do not dump the coredump handler itself crashes.
-	snprintf(path, sizeof(path), "/proc/%s/exe", argv[coreind + 9]);
+	snprintf(path, sizeof(path), "/proc/%s/exe", argv[11]);
 
 	safe_readlink(ERR, 1, path, buf, sizeof(buf));
 
 	if (!strcmp(selfpath, buf)) {
 		loggerf(WARN, "Stop coredump to avoid recursion");
-
 		cleanup();
-
 		exit(EXIT_SUCCESS);
 	}
 
 
 	// Create dump root directory.
 	snprintf(dumpdir, sizeof(dumpdir), "%s/%s",
-		 (dumpind == 0)?get_dirname(selfpath, buf):argv[dumpind],
-		 "core");
+		 get_dirname(selfpath, buf), "core");
 
 	safe_mkdir_p(dumpdir, 0755);
 
 
 	// Get the contents of proc/<pid>/cgroup.
-	snprintf(path, sizeof(path), "/proc/%s/cgroup", argv[coreind + 9]);
+	snprintf(path, sizeof(path), "/proc/%s/cgroup", argv[11]);
 
 	fd = safe_open(ERR, path, O_RDONLY | O_NOFOLLOW);
 
@@ -956,21 +1037,42 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (ret == -1)
+		loggerf(ERR, "Error occurred when matching container info");
+
 	if (ret) {
-		strcat(dumpdir, "/uncategorized");
+		loggerf(WARN, "Ignore unsupported container or host coredump");
+		cleanup();
+		exit(EXIT_SUCCESS);
 	} else {
 		strcpy(contrt, strtok_r(buf, "/-.", &saveptr));
 		strcpy(contid, strtok_r(NULL, "/-.", &saveptr));
 
 		if (get_dumpname(contrt, contid, path, sizeof(path)) == NULL) {
-			strcat(dumpdir, "/uncategorized");
+			loggerf(ERR, "Failed to get k8s related info");
 		} else {
+			strcpy(nsdir, dumpdir);
+
 			strcat(dumpdir, "/");
 			strcat(dumpdir, path);
+
+			strcat(nsdir, "/");
+			strcat(nsdir, strtok_r(path, "/", &saveptr));
 		}
 	}
 
-	time_t rawtime = strtoull(argv[coreind + 11], NULL, 10);
+	if (safe_mkdir_p(nsdir, 0750)) {
+		du_s(nsdir);
+
+		if (total >= ns_disk_quota) {
+			loggerf(ERR, "Failed to dump in %s, "
+				"run out of namespace disk quota", dumpdir);
+		}
+	}
+
+	safe_stat(ERR, nsdir, &sb);
+
+	time_t rawtime = strtoull(argv[13], NULL, 10);
 
 	struct tm *timeinfo = localtime(&rawtime);
 	if (timeinfo == NULL)
@@ -981,11 +1083,11 @@ int main(int argc, char *argv[])
 		loggerf(ERR, "strftime() returned 0");
 
 	strcat(dumpdir, "/");
-	strcat(dumpdir, argv[coreind + 2]);
+	strcat(dumpdir, argv[4]);
 	strcat(dumpdir, "-");
 	strcat(dumpdir, buf);
 	strcat(dumpdir, "-");
-	strcat(dumpdir, argv[coreind + 9]);
+	strcat(dumpdir, argv[11]);
 
 	safe_mkdir_p(dumpdir, 0750);
 
@@ -998,30 +1100,16 @@ int main(int argc, char *argv[])
 	fd = safe_open(ERR, path, O_WRONLY | O_EXCL | O_CREAT | O_NOFOLLOW,
 		       0640);
 
-	safe_write(WARN, 1, fd, cgroup_contents, strlen(cgroup_contents));
+	ret = safe_write(ERR, 1, fd, cgroup_contents, strlen(cgroup_contents));
 
-	safe_fsync(ERR, fd);
+	if (check_full(ret, sb.st_blksize, ns_disk_quota)) {
+		safe_close(ERR, fd);
+		fd = 0;
 
-	safe_close(ERR, fd);
-	fd = 0;
+		rm_rf(dumpdir);
 
-
-	// Write coredump file.
-	snprintf(path, sizeof(path), "%s/%s", dumpdir, "coredump");
-
-	fd = safe_open(ERR, path, O_WRONLY | O_EXCL | O_CREAT | O_NOFOLLOW,
-		       0640);
-
-	while (1) {
-		ret = splice(STDIN_FILENO, NULL, fd, NULL, INT_MAX,
-			     SPLICE_F_MOVE | SPLICE_F_MORE);
-		if (ret == -1) {
-			loggerf(ERR, "splice() failed, errno=%d: %s",
-				errno, strerror(errno));
-		}
-		
-		if (ret == 0)
-			break;
+		loggerf(ERR, "Failed to dump in %s, "
+			"run out of namespace disk quota", dumpdir);
 	}
 
 	safe_fsync(ERR, fd);
@@ -1053,14 +1141,58 @@ int main(int argc, char *argv[])
 		fd = safe_open(ERR, path,
 			       O_WRONLY | O_EXCL | O_CREAT | O_NOFOLLOW, 0640);
 
-		safe_write(WARN, 1, fd, argv[coreind + i],
-			   strlen(argv[coreind + i]));
+		ret = safe_write(ERR, 1, fd, argv[2 + i],
+				 strlen(argv[2 + i]));
+
+		if (check_full(ret, sb.st_blksize, ns_disk_quota)) {
+			safe_close(ERR, fd);
+			fd = 0;
+
+			rm_rf(dumpdir);
+
+			loggerf(ERR, "Failed to dump in %s, "
+				"run out of namespace disk quota", dumpdir);
+		}
 
 		safe_fsync(ERR, fd);
 
 		safe_close(ERR, fd);
 		fd = 0;
 	}
+
+
+	// Write coredump file.
+	snprintf(path, sizeof(path), "%s/%s", dumpdir, "coredump");
+
+	fd = safe_open(ERR, path, O_WRONLY | O_EXCL | O_CREAT | O_NOFOLLOW,
+		       0640);
+
+	while (1) {
+		ret = splice(STDIN_FILENO, NULL, fd, NULL, page_size,
+			     SPLICE_F_MOVE | SPLICE_F_MORE);
+		if (ret == -1) {
+			loggerf(ERR, "splice() failed, errno=%d: %s",
+				errno, strerror(errno));
+		}
+
+		if (ret == 0)
+			break;
+
+		if (check_full(ret, sb.st_blksize, ns_disk_quota)) {
+			safe_close(ERR, fd);
+			fd = 0;
+
+			rm_rf(dumpdir);
+
+			loggerf(ERR, "Failed to dump in %s, "
+				"run out of namespace disk quota", dumpdir);
+		}
+	}
+
+	safe_fsync(ERR, fd);
+
+	safe_close(ERR, fd);
+	fd = 0;
 
 	loggerf(INFO, "Dumped in %s", dumpdir);
 

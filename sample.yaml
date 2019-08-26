@@ -24,8 +24,15 @@ spec:
         - mountPath: /kcdt/host/core
           name: coredump-backend
         env:
+          # This value must be the same with the path of
+          # "host-volume", see below comments for details.
         - name: HOSTVOL
-          value: "/root"
+          value: /root
+          # NS_DISK_QUOTA sets the coredump disk quota
+          # for every k8s namespace, this is optional,
+          # default value is 1 GB.
+        - name: NS_DISK_QUOTA
+          value: "100mb"
         command: ["/kcdt/init.sh"]
         lifecycle:
           preStop:
@@ -34,9 +41,10 @@ spec:
       volumes:
       - name: host-volume
         hostPath:
-          # The coredump handler program will be installed here,
-          # you can config it as you like, but remember to modify
-          # the args value of HOSTVOL in env above as well.
+          # The coredump handler program and related files will
+          # be installed here, you can config it as you like,
+          # but remember to modify the args value of HOSTVOL in
+          # env above as well.
           path: /root
       - name: coredump-backend
         # The coredump files will be stored here, please config

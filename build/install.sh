@@ -21,11 +21,18 @@ install_dst=/kcdt/host/kcdt
 kcdt_pipe=/kcdt/host/kcdt.pipe
 
 if [ -z $HOSTVOL ]; then
-	core_pattern="|/root/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
+	hostvol=/root
 else
-	core_pattern="|$HOSTVOL/kcdt -c %c %d %e %E %g %h %i %I %p %P %s %t %u"
+	hostvol=$HOSTVOL
 fi
 
+if [ -z "$NS_DISK_QUOTA" ]; then
+	ns_disk_quota="1GB"
+else
+	ns_disk_quota=`echo $NS_DISK_QUOTA | tr -d ' \t'`
+fi
+
+core_pattern="|$hostvol/kcdt $ns_disk_quota %c %d %e %E %g %h %i %I %p %P %s %t %u"
 core_pipe_limit=64
 
 install()

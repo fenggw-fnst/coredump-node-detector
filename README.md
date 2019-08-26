@@ -37,7 +37,7 @@ Currently the container runtimes it supports are docker and cri-o.
   * procps (static compilation)
 
 2. Compile:
-  $ gcc kcdt.c -o build/kcdt -lcurl -l:libcjson.a -l:libprocps.a
+  $ gcc kcdt.c -o build/kcdt -lcurl -l:libcjson.a -l:libprocps.a -Wall
 
 3. Build docker image:
   $ cd build
