@@ -16,24 +16,25 @@
 # You should have received a copy of the GNU General Public License
 #
 
-. /kcdt/helper.sh
-
-echo `sysctl -n kernel.core_pattern` >/kcdt/core_pattern.rst
-if [ $? -ne 0 ]; then
-	loggerf WARN "Failed to create core_pattern.rst"
-fi
-
-echo `sysctl -n kernel.core_pipe_limit` >/kcdt/core_pipe_limit.rst
-if [ $? -ne 0 ]; then
-	loggerf WARN "Failed to create core_pipe_limit.rst"
-fi
-
-/kcdt/run.sh &
-echo $! >/kcdt/run.pid
-if [ $? -ne 0 ]; then
-	loggerf WARN "Failed to create run.pid"
-fi
-
-while true; do
-	sleep 30
-done
+loggerf()
+{
+	local level=$1
+	shift
+	local msg="$(date '+%Y-%m-%d %H:%M:%S') $@"
+	case "$level" in
+		INFO)
+			echo "$level $msg"
+			;;
+		WARN)
+			echo "$level $msg"
+			;;
+		ERR)
+			echo "$level  $msg"
+			exit 1
+			;;
+		*)
+			echo "Invalid log level type $level"
+			exit 1
+			;;
+	esac
+}

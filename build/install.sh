@@ -20,6 +20,8 @@ install_src=/kcdt/kcdt
 install_dst=/kcdt/host/kcdt
 kcdt_pipe=/kcdt/host/kcdt.pipe
 
+. /kcdt/helper.sh
+
 if [ -z $HOSTVOL ]; then
 	hostvol=/root
 else
@@ -40,18 +42,18 @@ install()
 	if [ ! -x $install_dst ]; then
 		cp $install_src $install_dst
 		if [ $? -eq 0 ]; then
-			echo "kcdt was installed successfully"
+			loggerf INFO "kcdt was installed successfully"
 		else
-			echo "Failed to install kcdt"
+			loggerf WARN "Failed to install kcdt"
 		fi
 	fi
 
 	if [ ! -p $kcdt_pipe ]; then
 		mkfifo $kcdt_pipe
 		if [ $? -eq 0 ]; then
-			echo "pipe was created successfully"
+			loggerf INFO "pipe was created successfully"
 		else
-			echo "Failed to create pipe"
+			loggerf WARN "Failed to create pipe"
 		fi
 	fi
 }
@@ -64,18 +66,18 @@ core_config()
 	if [ "$core_pattern_cur" != "$core_pattern" ]; then
 		sysctl kernel.core_pattern="$core_pattern" >/dev/null
 		if [ $? -eq 0 ]; then
-			echo "core_pattern was updated successfully"
+			loggerf INFO "core_pattern was updated successfully"
 		else
-			echo "Failed to update core_pattern"
+			loggerf WARN "Failed to update core_pattern"
 		fi
 	fi
 
 	if [ $core_pipe_limit_cur -ne $core_pipe_limit ]; then
 		sysctl kernel.core_pipe_limit=$core_pipe_limit >/dev/null
 		if [ $? -eq 0 ]; then
-			echo "core_pipe_limit was updated successfully"
+			loggerf INFO "core_pipe_limit was updated successfully"
 		else
-			echo "Failed to update core_pipe_limit"
+			loggerf WARN "Failed to update core_pipe_limit"
 		fi
 	fi
 }
