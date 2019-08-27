@@ -18,11 +18,13 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - mountPath: /kcdt/host
-          name: host-volume
+        - name: tz-config
+          mountPath: /etc/localtime
+        - name: host-volume
+          mountPath: /kcdt/host
           mountPropagation: Bidirectional
-        - mountPath: /kcdt/host/core
-          name: coredump-backend
+        - name: coredump-backend
+          mountPath: /kcdt/host/core
         env:
           # This value must be the same with the path of
           # "host-volume", see below comments for details.
@@ -39,6 +41,10 @@ spec:
             exec:
               command: ["/kcdt/cleanup.sh"]
       volumes:
+      - name: tz-config
+        hostPath:
+          # Change the path to the timezone of your host.
+          path: /usr/share/zoneinfo/Asia/Shanghai
       - name: host-volume
         hostPath:
           # The coredump handler program and related files will
