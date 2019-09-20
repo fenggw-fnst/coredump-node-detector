@@ -1,20 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kcdt
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coredump-admin
+  namespace: kcdt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: coredump-event-reporter
+rules:
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coredump-event-report
+subjects:
+- kind: ServiceAccount
+  name: coredump-admin
+  namespace: kcdt
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: coredump-event-reporter
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kcdt-daemonset-demo
-  namespace: default
+  name: kcdt-ds
+  namespace: kcdt
 spec:
   selector:
     matchLabels:
-      name: kcdt-demo
+      name: kcdt
   template:
     metadata:
       labels:
-        name: kcdt-demo
+        name: kcdt
     spec:
       containers:
-      - name: kcdt-demo-container
-        image: fenggw/kcdt
+      - name: kcdt-container
+        image: fenggw/kcdt:latest
         securityContext:
           privileged: true
         volumeMounts:

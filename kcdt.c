@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <regex.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,6 +61,7 @@ static int fd;
 static int log_fd;
 static int pipe_fd;
 static int page_size;
+static bool low_disk_warning;
 static uint64_t total;
 
 struct memstruct {
@@ -896,12 +898,19 @@ static char *get_dumpname(const char *contrt, const char *contid,
 	return buf;
 }
 
-static int check_full(ssize_t wrote, blksize_t blksize, uint64_t quota)
+static int check_full(ssize_t wrote, blksize_t blksz, uint64_t quota, char *ns)
 {
 	if (wrote > 1)
-		total += (uint64_t) (((wrote - 1) / blksize + 1) * blksize);
+		total += (uint64_t) (((wrote - 1) / blksz + 1) * blksz);
 	else
-		total += (uint64_t) (wrote * blksize);
+		total += (uint64_t) (wrote * blksz);
+
+	if (!low_disk_warning && total > quota * 9 / 10) {
+		loggerf(WARN,
+			"Namespace %s : Low disk space for saving core files",
+			ns);
+		low_disk_warning = true;
+	}
 
 	if (total > quota)
 		return -1;
@@ -946,6 +955,7 @@ int main(int argc, char *argv[])
 	char *saveptr;
 	char contrt[10];
 	char contid[70];
+	char namespace[255];
 	struct stat sb;
 
 
@@ -1044,22 +1054,22 @@ int main(int argc, char *argv[])
 		loggerf(WARN, "Ignore unsupported container or host coredump");
 		cleanup();
 		exit(EXIT_SUCCESS);
-	} else {
-		strcpy(contrt, strtok_r(buf, "/-.", &saveptr));
-		strcpy(contid, strtok_r(NULL, "/-.", &saveptr));
-
-		if (get_dumpname(contrt, contid, path, sizeof(path)) == NULL) {
-			loggerf(ERR, "Failed to get k8s related info");
-		} else {
-			strcpy(nsdir, dumpdir);
-
-			strcat(dumpdir, "/");
-			strcat(dumpdir, path);
-
-			strcat(nsdir, "/");
-			strcat(nsdir, strtok_r(path, "/", &saveptr));
-		}
 	}
+
+	strcpy(contrt, strtok_r(buf, "/-.", &saveptr));
+	strcpy(contid, strtok_r(NULL, "/-.", &saveptr));
+
+	if (get_dumpname(contrt, contid, path, sizeof(path)) == NULL)
+		loggerf(ERR, "Failed to get k8s related info");
+
+	strcpy(nsdir, dumpdir);
+
+	strcat(dumpdir, "/");
+	strcat(dumpdir, path);
+
+	strcat(nsdir, "/");
+	strcpy(namespace, strtok_r(path, "/", &saveptr));
+	strcat(nsdir, namespace);
 
 	if (safe_mkdir_p(nsdir, 0750)) {
 		du_s(nsdir);
@@ -1102,7 +1112,7 @@ int main(int argc, char *argv[])
 
 	ret = safe_write(ERR, 1, fd, cgroup_contents, strlen(cgroup_contents));
 
-	if (check_full(ret, sb.st_blksize, ns_disk_quota)) {
+	if (check_full(ret, sb.st_blksize, ns_disk_quota, namespace)) {
 		safe_close(ERR, fd);
 		fd = 0;
 
@@ -1144,7 +1154,7 @@ int main(int argc, char *argv[])
 		ret = safe_write(ERR, 1, fd, argv[2 + i],
 				 strlen(argv[2 + i]));
 
-		if (check_full(ret, sb.st_blksize, ns_disk_quota)) {
+		if (check_full(ret, sb.st_blksize, ns_disk_quota, namespace)) {
 			safe_close(ERR, fd);
 			fd = 0;
 
@@ -1178,7 +1188,7 @@ int main(int argc, char *argv[])
 		if (ret == 0)
 			break;
 
-		if (check_full(ret, sb.st_blksize, ns_disk_quota)) {
+		if (check_full(ret, sb.st_blksize, ns_disk_quota, namespace)) {
 			safe_close(ERR, fd);
 			fd = 0;
 
