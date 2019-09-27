@@ -73,6 +73,7 @@ spec:
           preStop:
             exec:
               command: ["/kcdt/cleanup.sh"]
+      serviceAccountName: coredump-admin
       volumes:
       - name: tz-config
         hostPath:
