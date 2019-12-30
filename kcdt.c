@@ -998,7 +998,7 @@ int main(int argc, char *argv[])
 	snprintf(path, sizeof(path), "%s/%s",
 		 get_dirname(selfpath, buf), "kcdt.pipe");
 
-	pipe_fd = safe_open(WARN, path, O_WRONLY);
+	pipe_fd = safe_open(WARN, path, O_RDWR | O_NONBLOCK);
 
 
 	// Do not dump the coredump handler itself crashes.
