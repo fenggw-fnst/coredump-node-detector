@@ -1,0 +1,21 @@
+FROM alpine as builder
+RUN apk add curl git build-base cmake gettext gettext-dev autoconf libtool automake libcurl curl-dev ncurses ncurses-dev
+RUN git clone https://github.com/DaveGamble/cJSON
+RUN mkdir /cJSON/build
+WORKDIR /cJSON/build
+RUN cmake -DBUILD_SHARED_AND_STATIC_LIBS=On ..
+RUN make && make install
+WORKDIR /
+RUN git clone https://gitlab.com/procps-ng/procps
+WORKDIR /procps
+RUN ./autogen.sh && ./configure --disable-nls && make && make install
+WORKDIR /
+RUN mkdir build
+COPY kcdt.c Makefile build.env /
+RUN make kcdt
+
+FROM alpine
+RUN apk add curl
+COPY helper.sh init.sh run.sh install.sh log.sh opener.sh cleanup.sh /kcdt/
+COPY --from=builder /build/kcdt /kcdt/
+RUN apk add curl
