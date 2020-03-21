@@ -15,7 +15,6 @@ COPY kcdt.c Makefile build.env /
 RUN make kcdt
 
 FROM alpine
-RUN apk add curl
 COPY helper.sh init.sh run.sh install.sh log.sh opener.sh cleanup.sh /kcdt/
 COPY --from=builder /build/kcdt /kcdt/
 RUN apk add curl
