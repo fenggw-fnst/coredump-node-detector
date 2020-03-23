@@ -21,7 +21,7 @@ Currently the container runtimes it supports are docker and cri-o.
 ## Install
 
 1. Prerequisites:
-  * k8s cluser must be --allow-privileged=true
+  * k8s cluster must be --allow-privileged=true
   * libcurl
 
 2. Deploy:
@@ -29,7 +29,7 @@ Currently the container runtimes it supports are docker and cri-o.
   $ kubectl create -f sample.yaml
 
 
-## Build
+## Build Local
 
 1. Prerequisites:
   * libcurl
@@ -43,8 +43,15 @@ Currently the container runtimes it supports are docker and cri-o.
   $ cd build
   $ docker build -t name:tag .
 
+## Build Docker
 
-## Open source licenses
+1. Update build.env with your image tag options 
+ 
+2. $ make image
+
+3. Other build options are available - Just type `make` to see them.
+
+## Open Source licenses
   * cURL: MIT/X derivate license
   * cJSON: MIT
   * procps: GNU GPLv2
