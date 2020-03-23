@@ -22,7 +22,7 @@ local: ## Creates the image using the output of `make kcdt` and the build.env pa
 image: ## Builds kcdt in an image then creates a run image based on hte build.env params.
 	@cd build && cp ../kcdt.c ../Makefile ../build.env . && docker build --no-cache -t $(DOCKER_REPO)/$(APP_NAME):$(VERSION_TAG) . -f Dockerfile.image-build && rm kcdt.c Makefile build.env
 
-push: ## Push image to your a docker repo.
+push: ## Push the image to your docker repo.
 	@docker push -t $(DOCKER_REPO)/$(APP_NAME):$(VERSION_TAG)
 
 all: ## Run clean, kcdt, image and push as one command.
@@ -31,5 +31,5 @@ all: ## Run clean, kcdt, image and push as one command.
 	make image
 	make push
 
-clean: ## removes the kcdt exe from the build folder.
+clean: ## Removes the kcdt exe from the build folder.
 	@rm -f build/kcdt

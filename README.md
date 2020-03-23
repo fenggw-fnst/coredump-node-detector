@@ -41,12 +41,12 @@ Currently the container runtimes it supports are docker and cri-o.
 
 3. Build docker image:
   $ cd build
-  $ docker build -t name:tag .
+  $ docker build --no-cache -t repo/name:tag .
 
 ## Build Docker
 
-1. Update build.env with your image tag options 
- 
+1. Update build.env with your image tag options
+
 2. $ make image
 
 3. Other build options are available - Just type `make` to see them.
