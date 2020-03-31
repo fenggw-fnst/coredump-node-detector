@@ -23,7 +23,7 @@ image: ## Builds kcdt in an image then creates a run image based on hte build.en
 	@cd build && cp ../kcdt.c ../Makefile ../build.env . && docker build --no-cache -t $(DOCKER_REPO)/$(APP_NAME):$(VERSION_TAG) . -f Dockerfile.image-build && rm kcdt.c Makefile build.env
 
 push: ## Push the image to your docker repo.
-	@docker push -t $(DOCKER_REPO)/$(APP_NAME):$(VERSION_TAG)
+	@docker push $(DOCKER_REPO)/$(APP_NAME):$(VERSION_TAG)
 
 all: ## Run clean, kcdt, image and push as one command.
 	make clean
